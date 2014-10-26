@@ -2,14 +2,28 @@
 title: "HAR Machine Learning Analysis"
 output: html_document
 ---
+## Introduction
+
+In this document we explore the data provided when users were performing weight lifting exercises.
+
+More information on the study could be found at 
+
+http://groupware.les.inf.puc-rio.br/har
+
+Participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. 
+
+Our goal is to come up with a machine learning prediction model where we can predict based on the data provided whether a user is doing the excercise correctly (Class A) or not (Other classes).
 
 In the initial setup, the seed is set so we can reproduce the results. Also the doParallel package is loaded for using the multiple cores while training. Caret and other required packages are loaded.
 
-```{r}
-set.seed(12345)
+## Initial Setup
+
+```{r echo=FALSE}
+set.seed(123)
 library(doParallel)
 registerDoParallel(cores=4)
 library(caret)
+library(ggplot2)
 ```
 
 The training set is loaded and split up as the actual training and testing sets. Only the columns that have no NA's are used for model creation.
@@ -20,59 +34,46 @@ testing_orig<-read.csv("pml-testing.csv")
 inTrain<-createDataPartition(y=training_orig$classe, p=0.70,list=F)
 training<-training_orig[inTrain,]
 testing<-training_orig[-inTrain,]
-cols<-c("roll_belt",
-"pitch_belt",
-"yaw_belt",
-"total_accel_belt",
-"gyros_belt_x",
-"gyros_belt_y",
-"gyros_belt_z",
-"accel_belt_x",
-"accel_belt_y",
-"accel_belt_z",
-"magnet_belt_x",
-"magnet_belt_y",
-"magnet_belt_z",
-"roll_arm",
-"pitch_arm",
-"yaw_arm",
-"total_accel_arm",
-"gyros_arm_x",
-"gyros_arm_y",
-"gyros_arm_z",
-"accel_arm_x",
-"accel_arm_y",
-"accel_arm_z",
-"magnet_arm_x",
-"magnet_arm_y",
-"magnet_arm_z",
-"roll_dumbbell",
-"pitch_dumbbell",
-"yaw_dumbbell",
-"total_accel_dumbbell",
-"gyros_dumbbell_x",
-"gyros_dumbbell_y",
-"gyros_dumbbell_z",
-"accel_dumbbell_x",
-"accel_dumbbell_y",
-"accel_dumbbell_z",
-"magnet_dumbbell_x",
-"magnet_dumbbell_y",
-"magnet_dumbbell_z",
-"roll_forearm",
-"pitch_forearm",
-"yaw_forearm",
-"total_accel_forearm",
-"gyros_forearm_x",
-"gyros_forearm_y",
-"gyros_forearm_z",
-"accel_forearm_x",
-"accel_forearm_y",
-"accel_forearm_z",
-"magnet_forearm_x",
-"magnet_forearm_y",
-"magnet_forearm_z",
+```
+
+Picking only columns needed for building the model.
+```{r}
+
+cols<-c(
+"roll_belt","pitch_belt","yaw_belt","total_accel_belt",
+"gyros_belt_x","gyros_belt_y","gyros_belt_z","accel_belt_x","accel_belt_y","accel_belt_z",
+"magnet_belt_x","magnet_belt_y","magnet_belt_z",
+"roll_arm","pitch_arm","yaw_arm","total_accel_arm",
+"gyros_arm_x","gyros_arm_y","gyros_arm_z","accel_arm_x","accel_arm_y","accel_arm_z",
+"magnet_arm_x","magnet_arm_y","magnet_arm_z",
+"roll_dumbbell","pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell",
+"gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z","accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z",
+"magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z",
+"roll_forearm","pitch_forearm","yaw_forearm","total_accel_forearm",
+"gyros_forearm_x","gyros_forearm_y","gyros_forearm_z","accel_forearm_x","accel_forearm_y","accel_forearm_z",
+"magnet_forearm_x","magnet_forearm_y","magnet_forearm_z",
 "classe")
+
+```
+
+## Exploring Data
+
+Lets get one user and try to find out the differences when he did the excercise in different ways.
+
+```{r}
+carlitos<-training[training[,"user_name"]=="carlitos",]
+qplot(classe,yaw_belt,color=num_window,data=carlitos)
+qplot(classe,pitch_belt,color=num_window,data=carlitos)
+qplot(classe,roll_belt,color=num_window,data=carlitos)
+```
+
+You can do many more plots with dumbell,arm but you can clearly see that for each classe, the values could be used to determine the classe.
+
+
+## Model Creation
+
+Lets create Random Forest model. I am only showing the final model for brevity, I have tried with rpart, but the accuracy is very low (Around 50%).
+```{r}
 
 model<-train(classe~.,data=training[,cols],method="rf", 
              trControl = trainControl(method="cv",number=4),
@@ -82,11 +83,13 @@ Lets look at the model
 ```{r}
 model
 ```
+## Cross Validation
 Predict the output of the testing data set and find out the accuracy using confusionMatrix function
 ```{r}
 output<-predict(model,testing)
 confusionMatrix(testing$classe,output)
 ```
+
 Finally we test our model on the 20 observations that have been kept aside.
 ```{r}
 predict(model,testing_orig)
