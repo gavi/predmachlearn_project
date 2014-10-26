@@ -3,21 +3,93 @@ title: "HAR Machine Learning Analysis"
 output: html_document
 ---
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+In the initial setup, the seed is set so we can reproduce the results. Also the doParallel package is loaded for using the multiple cores while training. Caret and other required packages are loaded.
 
 ```{r}
+set.seed(12345)
+library(doParallel)
+registerDoParallel(cores=4)
 library(caret)
-training<-read.csv("pml-training.csv")
-testing<-read.csv("pml-testing.csv")
-model<-train(classe~.,data=training,method="glm")
 ```
 
-You can also embed plots, for example:
+The training set is loaded and split up as the actual training and testing sets. Only the columns that have no NA's are used for model creation.
 
-```{r, echo=FALSE}
-plot(cars)
+```{r}
+training_orig<-read.csv("pml-training.csv")
+testing_orig<-read.csv("pml-testing.csv")
+inTrain<-createDataPartition(y=training_orig$classe, p=0.70,list=F)
+training<-training_orig[inTrain,]
+testing<-training_orig[-inTrain,]
+cols<-c("roll_belt",
+"pitch_belt",
+"yaw_belt",
+"total_accel_belt",
+"gyros_belt_x",
+"gyros_belt_y",
+"gyros_belt_z",
+"accel_belt_x",
+"accel_belt_y",
+"accel_belt_z",
+"magnet_belt_x",
+"magnet_belt_y",
+"magnet_belt_z",
+"roll_arm",
+"pitch_arm",
+"yaw_arm",
+"total_accel_arm",
+"gyros_arm_x",
+"gyros_arm_y",
+"gyros_arm_z",
+"accel_arm_x",
+"accel_arm_y",
+"accel_arm_z",
+"magnet_arm_x",
+"magnet_arm_y",
+"magnet_arm_z",
+"roll_dumbbell",
+"pitch_dumbbell",
+"yaw_dumbbell",
+"total_accel_dumbbell",
+"gyros_dumbbell_x",
+"gyros_dumbbell_y",
+"gyros_dumbbell_z",
+"accel_dumbbell_x",
+"accel_dumbbell_y",
+"accel_dumbbell_z",
+"magnet_dumbbell_x",
+"magnet_dumbbell_y",
+"magnet_dumbbell_z",
+"roll_forearm",
+"pitch_forearm",
+"yaw_forearm",
+"total_accel_forearm",
+"gyros_forearm_x",
+"gyros_forearm_y",
+"gyros_forearm_z",
+"accel_forearm_x",
+"accel_forearm_y",
+"accel_forearm_z",
+"magnet_forearm_x",
+"magnet_forearm_y",
+"magnet_forearm_z",
+"classe")
+
+model<-train(classe~.,data=training[,cols],method="rf", 
+             trControl = trainControl(method="cv",number=4),
+           preProcess = c("pca"))
+```
+Lets look at the model
+```{r}
+model
+```
+Predict the output of the testing data set and find out the accuracy using confusionMatrix function
+```{r}
+output<-predict(model,testing)
+confusionMatrix(testing$classe,output)
+```
+Finally we test our model on the 20 observations that have been kept aside.
+```{r}
+predict(model,testing_orig)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
